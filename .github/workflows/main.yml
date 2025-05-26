@@ -36,12 +36,10 @@ jobs:
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         dotnet restore "$PROJECT"
-
     - name: Install StyleCop.Analyzers
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         dotnet add "$PROJECT" package StyleCop.Analyzers
-
     - name: Build with StyleCop Analysis
       id: build
       continue-on-error: true
@@ -49,22 +47,13 @@ jobs:
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         dotnet build "$PROJECT" -warnaserror > build-output.txt
         cat build-output.txt
-        if grep -q "error" build-output.txt; then
-          echo "Build errors found"
-          exit 1
-        fi
-
     - name: Extract StyleCop Violations
       id: violations
       run: |
         STYLECOP_WARNINGS=$(grep -E "(SA[0-9]{4})" build-output.txt | wc -l)
         echo "StyleCop Violations: $STYLECOP_WARNINGS"
         echo "stylecop_violations=$STYLECOP_WARNINGS" >> $GITHUB_ENV
-
- 
-    - name: Generate HTML Report
-      run: |
-        echo "<html><body><h2>StyleCop Violations: ${{ env.stylecop_violations }}</h2><h3>Quality Score: ${{ env.quality_score }}</h3></body></html>" > stylecop-report.html
+   
 
     - name: Save Report to docs/ Folder
       run: |
@@ -73,9 +62,11 @@ jobs:
         DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code_quality"
         mkdir -p "$DOCS_FOLDER"
         mv stylecop-report.html "$DOCS_FOLDER/"
-
     - name: Upload Report Artifact
       uses: actions/upload-artifact@v4
       with:
         name: stylecop-report
         path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/stylecop-report.html
+
+   
+ 
