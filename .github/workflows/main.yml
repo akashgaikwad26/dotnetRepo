@@ -48,7 +48,21 @@ jobs:
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         echo "Building project: $PROJECT"
-        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore /p:NoWarn=NU1902;NU1903
+        
+        # Run the build command and capture both stdout and stderr
+        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore /p:NoWarn=NU1902;NU1903 > build-output.txt 2>&1
+        
+        # Check if the build failed and print the error message
+        if [ $? -ne 0 ]; then
+          echo "Build failed. See below for error details:"
+          cat build-output.txt
+          exit 1
+        fi
+
+        # If the build is successful, proceed to generate the report
+        echo "Build succeeded. Generating StyleCop report..."
+        
+        # Your further steps to generate the report can go here (e.g., using MSBuild or generating an HTML report)
 
     - name: Extract StyleCop Violations
       id: violations
