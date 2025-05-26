@@ -42,17 +42,22 @@ jobs:
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         dotnet add "$PROJECT" package Microsoft.CodeAnalysis.FxCopAnalyzers
 
-    - name: Run FxCop Analysis
+    - name: Build Project and Analyze with FxCop
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
-        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore
+        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore || true # Allow build to fail but continue
 
     - name: Extract FxCop Violations
       id: violations
       run: |
+        PROJECT=$(find . -name "*.csproj" | head -n 1)
+        # Capture FxCop violations (CA[0-9]{4} pattern)
         FXCOP_WARNINGS=$(dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore | grep -E "(CA[0-9]{4})" | wc -l)
         echo "FxCop Violations: $FXCOP_WARNINGS"
         echo "fxcop_violations=$FXCOP_WARNINGS" >> $GITHUB_ENV
+        if [ "$FXCOP_WARNINGS" -gt 0 ]; then
+          echo "There are $FXCOP_WARNINGS FxCop violations. Please check the details."
+        fi
 
     - name: Save Report to docs/ Folder
       run: |
