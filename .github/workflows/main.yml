@@ -57,22 +57,7 @@ jobs:
         echo "StyleCop Violations: $STYLECOP_WARNINGS"
         echo "stylecop_violations=$STYLECOP_WARNINGS" >> $GITHUB_ENV
 
-    - name: Calculate Quality Score
-      run: |
-        VIOLATIONS=${{ env.stylecop_violations }}
-        TOTAL_FILES=$(find . -name "*.cs" | wc -l)
-        if [ "$TOTAL_FILES" -eq 0 ]; then
-          echo "No C# files found. Score is 0."
-          QUALITY=0
-        else
-          QUALITY=$(awk "BEGIN {printf \"%.2f\", 10.0 - ((5 * $VIOLATIONS / $TOTAL_FILES) * 10)}")
-        fi
-        echo "Quality Score: $QUALITY"
-        echo "quality_score=$QUALITY" >> $GITHUB_ENV
-
-    - name: Generate HTML Report
-      run: |
-        echo "<html><body><h2>StyleCop Violations: ${{ env.stylecop_violations }}</h2><h3>Quality Score: ${{ env.quality_score }}</h3></body></html>" > stylecop-report.html
+   
 
     - name: Save Report to docs/ Folder
       run: |
