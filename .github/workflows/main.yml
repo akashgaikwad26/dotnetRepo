@@ -1,4 +1,4 @@
-name: StyleCop Analysis for C# Code Quality
+name: FxCop Analysis for C# Code Quality
 
 on:
   push:
@@ -20,7 +20,7 @@ on:
 
 jobs:
   analyze:
-    name: Run StyleCop Analysis and Generate Report
+    name: Run FxCop Analysis and Generate Report
     runs-on: ubuntu-latest
 
     steps:
@@ -37,22 +37,22 @@ jobs:
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         dotnet restore "$PROJECT"
 
-    - name: Install StyleCop.Analyzers
+    - name: Install FxCop Analyzers
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
-        dotnet add "$PROJECT" package StyleCop.Analyzers
+        dotnet add "$PROJECT" package Microsoft.CodeAnalysis.FxCopAnalyzers
 
-    - name: Build Project and Analyze with StyleCop
+    - name: Run FxCop Analysis
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore
 
-    - name: Extract StyleCop Violations
+    - name: Extract FxCop Violations
       id: violations
       run: |
-        STYLECOP_WARNINGS=$(dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore | grep -E "(SA[0-9]{4})" | wc -l)
-        echo "StyleCop Violations: $STYLECOP_WARNINGS"
-        echo "stylecop_violations=$STYLECOP_WARNINGS" >> $GITHUB_ENV
+        FXCOP_WARNINGS=$(dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore | grep -E "(CA[0-9]{4})" | wc -l)
+        echo "FxCop Violations: $FXCOP_WARNINGS"
+        echo "fxcop_violations=$FXCOP_WARNINGS" >> $GITHUB_ENV
 
     - name: Save Report to docs/ Folder
       run: |
@@ -65,5 +65,5 @@ jobs:
     - name: Upload Report Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: stylecop-report
+        name: fxcop-report
         path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/build-output.txt
