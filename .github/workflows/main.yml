@@ -18,7 +18,7 @@ on:
         required: false
         default: 'default-project'
 
-jobs:
+jobs: 
   analyze:
     name: Run StyleCop Analysis and Generate Report
     runs-on: ubuntu-latest
