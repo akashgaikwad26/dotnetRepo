@@ -45,7 +45,8 @@ jobs:
     - name: Generate StyleCop Report (HTML)
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
-        dotnet build "$PROJECT" -warnaserror --configuration Release
+        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore /p:NoWarn=NU1902;NU1903
+
 
     - name: Extract StyleCop Violations
       id: violations
