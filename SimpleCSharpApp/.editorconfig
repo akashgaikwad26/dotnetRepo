@@ -1,0 +1,3 @@
+
+[*.cs]
+dotnet_stylecop_analyzers_enabled = true
