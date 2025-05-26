@@ -25,7 +25,7 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
@@ -74,7 +74,7 @@ jobs:
         mv format-report.html "$DOCS_FOLDER/"
 
     - name: Upload Report Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: csharp-quality-report
         path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/format-report.html
