@@ -1,0 +1,79 @@
+name: FxCop Analysis for C# Code Quality
+
+on:
+  push:
+    paths:
+      - '**/*.cs'
+  pull_request:
+    paths:
+      - '**/*.cs'
+  workflow_dispatch:
+    inputs:
+      custom_username:
+        description: 'Enter custom username (default is "default-user")'
+        required: false
+        default: 'default-user'
+      project_id:
+        description: 'Enter project ID (default is "default-project")'
+        required: false
+        default: 'default-project'
+
+jobs:
+  analyze:
+    name: Run FxCop Analysis and Generate Report
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET 9.0.300 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.300'
+
+    - name: Restore Dependencies
+      run: |
+        PROJECT=$(find . -name "*.csproj" | head -n 1)
+        echo "Restoring dependencies for project: $PROJECT"
+        dotnet restore "$PROJECT"
+
+    - name: Install FxCop Analyzers
+      run: |
+        PROJECT=$(find . -name "*.csproj" | head -n 1)
+        echo "Adding FxCop Analyzers to project: $PROJECT"
+        dotnet add "$PROJECT" package Microsoft.CodeAnalysis.FxCopAnalyzers
+
+    - name: Build and Generate Documentation + Warnings
+      run: |
+        PROJECT=$(find . -name "*.csproj" | head -n 1)
+        echo "Building project: $PROJECT"
+        dotnet build "$PROJECT" --configuration Release /p:GenerateDocumentationFile=true /p:WarningLevel=4 > build-output.txt 2>&1 || true
+
+    - name: Extract FxCop Violations
+      id: violations
+      run: |
+        FXCOP_ERRORS=$(grep -E "(CA[0-9]{4})" build-output.txt | tee fxcop-errors.txt | wc -l)
+        echo "FxCop Violations: $FXCOP_ERRORS"
+        echo "fxcop_violations=$FXCOP_ERRORS" >> $GITHUB_ENV
+
+    - name: Format Violations as HTML
+      run: |
+        mkdir -p report
+        echo "<html><body><h2>FxCop Violations</h2><pre>" > report/index.html
+        cat fxcop-errors.txt >> report/index.html
+        echo "</pre></body></html>" >> report/index.html
+
+    - name: Save Report to docs/ Folder
+      run: |
+        USERNAME="${{ github.event.inputs.custom_username || 'default-user' }}"
+        PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
+        DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code_quality"
+        mkdir -p "$DOCS_FOLDER"
+        cp -r report/* "$DOCS_FOLDER/"
+
+    - name: Upload Report Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: fxcop-report
+        path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/index.html
