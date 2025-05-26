@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Lenovo\\Desktop\\second_dotnet\\SimpleCSharpApp\\SimpleCSharpApp.csproj": {}
+    "C:\\Users\\Lenovo\\Desktop\\code_QUality\\dotnetRepo\\SimpleCSharpApp\\SimpleCSharpApp.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Lenovo\\Desktop\\second_dotnet\\SimpleCSharpApp\\SimpleCSharpApp.csproj": {
+    "C:\\Users\\Lenovo\\Desktop\\code_QUality\\dotnetRepo\\SimpleCSharpApp\\SimpleCSharpApp.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Lenovo\\Desktop\\second_dotnet\\SimpleCSharpApp\\SimpleCSharpApp.csproj",
+        "projectUniqueName": "C:\\Users\\Lenovo\\Desktop\\code_QUality\\dotnetRepo\\SimpleCSharpApp\\SimpleCSharpApp.csproj",
         "projectName": "SimpleCSharpApp",
-        "projectPath": "C:\\Users\\Lenovo\\Desktop\\second_dotnet\\SimpleCSharpApp\\SimpleCSharpApp.csproj",
+        "projectPath": "C:\\Users\\Lenovo\\Desktop\\code_QUality\\dotnetRepo\\SimpleCSharpApp\\SimpleCSharpApp.csproj",
         "packagesPath": "C:\\Users\\Lenovo\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Lenovo\\Desktop\\second_dotnet\\SimpleCSharpApp\\obj\\",
+        "outputPath": "C:\\Users\\Lenovo\\Desktop\\code_QUality\\dotnetRepo\\SimpleCSharpApp\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Lenovo\\AppData\\Roaming\\NuGet\\NuGet.Config"
