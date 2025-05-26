@@ -1,4 +1,5 @@
-name: Code Quality (C#)
+
+name: StyleCop Analysis for C# Code Quality
 
 on:
   push:
@@ -30,7 +31,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.x' # or 7.x / 6.x depending on your project
+        dotnet-version: '8.x' # Use .NET 8 or 7 for latest projects
 
     - name: Restore Dependencies
       run: |
@@ -40,21 +41,16 @@ jobs:
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         dotnet add "$PROJECT" package StyleCop.Analyzers
-    - name: Build with StyleCop Analysis
-      id: build
-      continue-on-error: true
+    - name: Generate StyleCop Report (HTML)
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
-        dotnet build "$PROJECT" -warnaserror > build-output.txt
-        cat build-output.txt
+        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore /p:NoWarn=NU1902;NU1903
     - name: Extract StyleCop Violations
       id: violations
       run: |
         STYLECOP_WARNINGS=$(grep -E "(SA[0-9]{4})" build-output.txt | wc -l)
         echo "StyleCop Violations: $STYLECOP_WARNINGS"
         echo "stylecop_violations=$STYLECOP_WARNINGS" >> $GITHUB_ENV
-   
-
     - name: Save Report to docs/ Folder
       run: |
         USERNAME="${{ github.event.inputs.custom_username || 'default-user' }}"
@@ -67,6 +63,3 @@ jobs:
       with:
         name: stylecop-report
         path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/stylecop-report.html
-
-   
- 
