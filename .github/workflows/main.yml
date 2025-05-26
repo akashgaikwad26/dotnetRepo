@@ -1,4 +1,4 @@
-name: FxCop Analysis for C# Code Quality
+name: Roslyn Analyzers (FxCop) Static Analysis
 
 on:
   push:
@@ -8,87 +8,40 @@ on:
     paths:
       - '**/*.cs'
   workflow_dispatch:
-    inputs:
-      custom_username:
-        description: 'Enter custom username (default is "default-user")'
-        required: false
-        default: 'default-user'
-      project_id:
-        description: 'Enter project ID (default is "default-project")'
-        required: false
-        default: 'default-project'
 
 jobs:
   analyze:
-    name: Run FxCop Analysis and Generate Report
+    name: Run Roslyn FxCop Analysis and Generate HTML Report
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: '8.x' # Use .NET 8 or 7 for latest projects
-
-    - name: Restore Dependencies
-      run: |
-        PROJECT=$(find . -name "*.csproj" | head -n 1)
-        dotnet restore "$PROJECT"
+        dotnet-version: '8.x'
 
     - name: Install FxCop Analyzers
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         dotnet add "$PROJECT" package Microsoft.CodeAnalysis.FxCopAnalyzers
 
-    - name: Build Project and Analyze with FxCop
+    - name: Run FxCop Analysis
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
-        # Redirect build output to a file to capture both errors and violations
-        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore > build-output.txt || true # Continue even on failure
+        dotnet build "$PROJECT" --configuration Release --no-restore -v normal > build-output.xml || true
 
-    - name: Extract FxCop Violations and Errors
-      id: violations
+    - name: Generate HTML Report
       run: |
-        if [ -f "build-output.txt" ]; then
-          # Capture FxCop violations (CA[0-9]{4} pattern) and build errors
-          FVC_ERRORS=$(grep -E "(error [0-9]+:)" build-output.txt) # Capture build errors
-          FVC_WARNINGS=$(grep -E "(CA[0-9]{4})" build-output.txt) # Capture FxCop violations
-          
-          # Count violations
-          FVC_VIOLATIONS_COUNT=$(echo "$FVC_WARNINGS" | wc -l)
-          FVC_ERRORS_COUNT=$(echo "$FVC_ERRORS" | wc -l)
-
-          # Output count of errors and violations
-          echo "Build Errors: $FVC_ERRORS_COUNT"
-          echo "FxCop Violations: $FVC_VIOLATIONS_COUNT"
-          echo "fvc_errors=$FVC_ERRORS_COUNT" >> $GITHUB_ENV
-          echo "fvc_violations=$FVC_VIOLATIONS_COUNT" >> $GITHUB_ENV
-
-          # Save errors and warnings into a single file for later upload
-          echo "Build Errors:" > fxcop-report.txt
-          echo "$FVC_ERRORS" >> fxcop-report.txt
-          echo "" >> fxcop-report.txt
-          echo "FxCop Violations:" >> fxcop-report.txt
-          echo "$FVC_WARNINGS" >> fxcop-report.txt
-        else
-          echo "build-output.txt not found, no violations or errors to report."
-        fi
-
-    - name: Save Report to docs/ Folder
-      run: |
-        USERNAME="${{ github.event.inputs.custom_username || 'default-user' }}"
-        PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
-        DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code_quality"
-        mkdir -p "$DOCS_FOLDER"
-        # Move fxcop-report.txt (which contains both errors and violations)
-        if [ -f "fxcop-report.txt" ]; then
-          mv fxcop-report.txt "$DOCS_FOLDER/"
-        fi
-
-    - name: Upload Report Artifact
-      uses: actions/upload-artifact@v4
+        dotnet tool install --global dotnet-reportgenerator-globaltool
+        reportgenerator -reports:build-output.xml -targetdir:report -reporttypes:Html
+        mkdir -p docs/reports
+        mv report/* docs/reports/
+        
+    - name: Upload HTML Report Artifact
+      uses: actions/upload-artifact@v2
       with:
-        name: fxcop-report
-        path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/fxcop-report.txt
+        name: fxcop-html-report
+        path: docs/reports/
