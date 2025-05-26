@@ -44,11 +44,11 @@ jobs:
         echo "Adding StyleCop.Analyzers to project: $PROJECT"
         dotnet add "$PROJECT" package StyleCop.Analyzers
 
-    - name: Build and Generate StyleCop Output
+    - name: Build and Generate Documentation + Warnings
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         echo "Building project: $PROJECT"
-        dotnet build "$PROJECT" --configuration Release --no-restore -warnaserror /p:NoWarn=NU1902;NU1903 > build-output.txt 2>&1 || true
+        dotnet build "$PROJECT" --configuration Release /p:GenerateDocumentationFile=true /p:WarningLevel=4 > build-output.txt 2>&1 || true
 
     - name: Extract StyleCop Violations
       id: violations
@@ -57,16 +57,12 @@ jobs:
         echo "StyleCop Violations: $STYLECOP_ERRORS"
         echo "stylecop_violations=$STYLECOP_ERRORS" >> $GITHUB_ENV
 
-    - name: Install ReportGenerator
-      run: dotnet tool install --global dotnet-reportgenerator-globaltool
-
-    - name: Generate HTML Report
+    - name: Format Violations as HTML
       run: |
-        reportgenerator \
-          -reports:build-output.txt \
-          -targetdir:report \
-          -reporttypes:Html \
-          -filefilters:"**/*.cs" || true
+        mkdir -p report
+        echo "<html><body><h2>StyleCop Violations</h2><pre>" > report/index.html
+        cat stylecop-errors.txt >> report/index.html
+        echo "</pre></body></html>" >> report/index.html
 
     - name: Save Report to docs/ Folder
       run: |
