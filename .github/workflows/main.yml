@@ -30,7 +30,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.x' # or 7.x / 6.x depending on your project
+        dotnet-version: '8.x' # Use .NET 8 or 7 for latest projects
 
     - name: Restore Dependencies
       run: |
@@ -44,11 +44,8 @@ jobs:
 
     - name: Generate StyleCop Report (HTML)
       run: |
-        # Generate the StyleCop report as an HTML file
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         dotnet build "$PROJECT" -warnaserror --configuration Release
-        # Optionally, convert the .xml to .html using a tool like `stylecop-report-generator`
-        stylecop-report-generator -o stylecop-report.html build-output.xml  # Replace with your report generator if necessary
 
     - name: Extract StyleCop Violations
       id: violations
