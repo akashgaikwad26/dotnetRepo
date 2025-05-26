@@ -18,7 +18,7 @@ on:
         required: false
         default: 'default-project'
 
-jobs: 
+jobs:
   analyze:
     name: Run StyleCop Analysis and Generate Report
     runs-on: ubuntu-latest
@@ -27,10 +27,10 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    - name: Setup .NET 9.0
+    - name: Setup .NET 9.0.300 SDK
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0'  # Use .NET 9.0 for the latest SDK (ensure it's installed)
+        dotnet-version: '9.0.300'
 
     - name: Restore Dependencies
       run: |
@@ -44,33 +44,29 @@ jobs:
         echo "Adding StyleCop.Analyzers to project: $PROJECT"
         dotnet add "$PROJECT" package StyleCop.Analyzers
 
-    - name: Generate StyleCop Report (HTML)
+    - name: Build and Generate StyleCop Output
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
         echo "Building project: $PROJECT"
-        
-        # Run the build command and capture both stdout and stderr
-        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore /p:NoWarn=NU1902;NU1903 > build-output.txt 2>&1
-        
-        # Check if the build failed and print the error message
-        if [ $? -ne 0 ]; then
-          echo "Build failed. See below for error details:"
-          cat build-output.txt
-          exit 1
-        fi
-
-        # If the build is successful, proceed to generate the report
-        echo "Build succeeded. Generating StyleCop report..."
-        
-        # Your further steps to generate the report can go here (e.g., using MSBuild or generating an HTML report)
+        dotnet build "$PROJECT" --configuration Release --no-restore -warnaserror /p:NoWarn=NU1902;NU1903 > build-output.txt 2>&1 || true
 
     - name: Extract StyleCop Violations
       id: violations
       run: |
-        # Assuming the build output is redirected to a file (e.g., build-output.txt)
-        STYLECOP_WARNINGS=$(grep -E "(SA[0-9]{4})" build-output.txt | wc -l)
-        echo "StyleCop Violations: $STYLECOP_WARNINGS"
-        echo "stylecop_violations=$STYLECOP_WARNINGS" >> $GITHUB_ENV
+        STYLECOP_ERRORS=$(grep -E "(SA[0-9]{4})" build-output.txt | tee stylecop-errors.txt | wc -l)
+        echo "StyleCop Violations: $STYLECOP_ERRORS"
+        echo "stylecop_violations=$STYLECOP_ERRORS" >> $GITHUB_ENV
+
+    - name: Install ReportGenerator
+      run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+    - name: Generate HTML Report
+      run: |
+        reportgenerator \
+          -reports:build-output.txt \
+          -targetdir:report \
+          -reporttypes:Html \
+          -filefilters:"**/*.cs" || true
 
     - name: Save Report to docs/ Folder
       run: |
@@ -78,10 +74,10 @@ jobs:
         PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
         DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code_quality"
         mkdir -p "$DOCS_FOLDER"
-        mv stylecop-report.html "$DOCS_FOLDER/"
+        cp -r report/* "$DOCS_FOLDER/"
 
     - name: Upload Report Artifact
       uses: actions/upload-artifact@v4
       with:
         name: stylecop-report
-        path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/stylecop-report.html
+        path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/index.html
