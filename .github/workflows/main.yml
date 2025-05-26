@@ -45,18 +45,35 @@ jobs:
     - name: Build Project and Analyze with FxCop
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
-        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore || true # Allow build to fail but continue
+        # Redirect build output to a file to capture both errors and violations
+        dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore > build-output.txt || true # Continue even on failure
 
-    - name: Extract FxCop Violations
+    - name: Extract FxCop Violations and Errors
       id: violations
       run: |
-        PROJECT=$(find . -name "*.csproj" | head -n 1)
-        # Capture FxCop violations (CA[0-9]{4} pattern)
-        FXCOP_WARNINGS=$(dotnet build "$PROJECT" -warnaserror --configuration Release --no-restore | grep -E "(CA[0-9]{4})" | wc -l)
-        echo "FxCop Violations: $FXCOP_WARNINGS"
-        echo "fxcop_violations=$FXCOP_WARNINGS" >> $GITHUB_ENV
-        if [ "$FXCOP_WARNINGS" -gt 0 ]; then
-          echo "There are $FXCOP_WARNINGS FxCop violations. Please check the details."
+        if [ -f "build-output.txt" ]; then
+          # Capture FxCop violations (CA[0-9]{4} pattern) and build errors
+          FVC_ERRORS=$(grep -E "(error [0-9]+:)" build-output.txt) # Capture build errors
+          FVC_WARNINGS=$(grep -E "(CA[0-9]{4})" build-output.txt) # Capture FxCop violations
+          
+          # Count violations
+          FVC_VIOLATIONS_COUNT=$(echo "$FVC_WARNINGS" | wc -l)
+          FVC_ERRORS_COUNT=$(echo "$FVC_ERRORS" | wc -l)
+
+          # Output count of errors and violations
+          echo "Build Errors: $FVC_ERRORS_COUNT"
+          echo "FxCop Violations: $FVC_VIOLATIONS_COUNT"
+          echo "fvc_errors=$FVC_ERRORS_COUNT" >> $GITHUB_ENV
+          echo "fvc_violations=$FVC_VIOLATIONS_COUNT" >> $GITHUB_ENV
+
+          # Save errors and warnings into a single file for later upload
+          echo "Build Errors:" > fxcop-report.txt
+          echo "$FVC_ERRORS" >> fxcop-report.txt
+          echo "" >> fxcop-report.txt
+          echo "FxCop Violations:" >> fxcop-report.txt
+          echo "$FVC_WARNINGS" >> fxcop-report.txt
+        else
+          echo "build-output.txt not found, no violations or errors to report."
         fi
 
     - name: Save Report to docs/ Folder
@@ -65,10 +82,13 @@ jobs:
         PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
         DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code_quality"
         mkdir -p "$DOCS_FOLDER"
-        mv build-output.txt "$DOCS_FOLDER/"
+        # Move fxcop-report.txt (which contains both errors and violations)
+        if [ -f "fxcop-report.txt" ]; then
+          mv fxcop-report.txt "$DOCS_FOLDER/"
+        fi
 
     - name: Upload Report Artifact
       uses: actions/upload-artifact@v4
       with:
         name: fxcop-report
-        path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/build-output.txt
+        path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/fxcop-report.txt
