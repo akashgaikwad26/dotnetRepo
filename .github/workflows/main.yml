@@ -1,4 +1,4 @@
-name: Roslyn Analyzers (FxCop) Static Analysis
+name: Code Quality (C#)
 
 on:
   push:
@@ -8,40 +8,74 @@ on:
     paths:
       - '**/*.cs'
   workflow_dispatch:
+    inputs:
+      custom_username:
+        description: 'Enter custom username (default is "default-user")'
+        required: false
+        default: 'default-user'
+      project_id:
+        description: 'Enter project ID (default is "default-project")'
+        required: false
+        default: 'default-project'
 
 jobs:
   analyze:
-    name: Run Roslyn FxCop Analysis and Generate HTML Report
+    name: Run StyleCop Analysis and Generate Report
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.x'
+        dotnet-version: '8.x' # or 7.x / 6.x depending on your project
 
-    - name: Install FxCop Analyzers
+    - name: Restore Dependencies
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
-        dotnet add "$PROJECT" package Microsoft.CodeAnalysis.FxCopAnalyzers
+        dotnet restore "$PROJECT"
 
-    - name: Run FxCop Analysis
+    - name: Install StyleCop.Analyzers
       run: |
         PROJECT=$(find . -name "*.csproj" | head -n 1)
-        dotnet build "$PROJECT" --configuration Release --no-restore -v normal > build-output.xml || true
+        dotnet add "$PROJECT" package StyleCop.Analyzers
 
+    - name: Build with StyleCop Analysis
+      id: build
+      continue-on-error: true
+      run: |
+        PROJECT=$(find . -name "*.csproj" | head -n 1)
+        dotnet build "$PROJECT" -warnaserror > build-output.txt
+        cat build-output.txt
+        if grep -q "error" build-output.txt; then
+          echo "Build errors found"
+          exit 1
+        fi
+
+    - name: Extract StyleCop Violations
+      id: violations
+      run: |
+        STYLECOP_WARNINGS=$(grep -E "(SA[0-9]{4})" build-output.txt | wc -l)
+        echo "StyleCop Violations: $STYLECOP_WARNINGS"
+        echo "stylecop_violations=$STYLECOP_WARNINGS" >> $GITHUB_ENV
+
+ 
     - name: Generate HTML Report
       run: |
-        dotnet tool install --global dotnet-reportgenerator-globaltool
-        reportgenerator -reports:build-output.xml -targetdir:report -reporttypes:Html
-        mkdir -p docs/reports
-        mv report/* docs/reports/
-        
-    - name: Upload HTML Report Artifact
-      uses: actions/upload-artifact@v2
+        echo "<html><body><h2>StyleCop Violations: ${{ env.stylecop_violations }}</h2><h3>Quality Score: ${{ env.quality_score }}</h3></body></html>" > stylecop-report.html
+
+    - name: Save Report to docs/ Folder
+      run: |
+        USERNAME="${{ github.event.inputs.custom_username || 'default-user' }}"
+        PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
+        DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code_quality"
+        mkdir -p "$DOCS_FOLDER"
+        mv stylecop-report.html "$DOCS_FOLDER/"
+
+    - name: Upload Report Artifact
+      uses: actions/upload-artifact@v4
       with:
-        name: fxcop-html-report
-        path: docs/reports/
+        name: stylecop-report
+        path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/**/stylecop-report.html
