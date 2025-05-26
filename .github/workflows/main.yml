@@ -1,0 +1,113 @@
+name: Code Quality (C#)
+
+on:
+  push:
+    paths:
+      - '**/*.cs'
+  pull_request:
+    paths:
+      - '**/*.cs'
+  workflow_dispatch:
+    inputs:
+      custom_username:
+        description: 'Enter custom username (default is "default-user")'
+        required: false
+        default: 'default-user'
+      project_id:
+        description: 'Enter project ID (default is "default-project")'
+        required: false
+        default: 'default-project'
+
+jobs:
+  lint:
+    name: Run dotnet-format and Generate Quality Report
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Install dotnet-format
+      run: dotnet tool install -g dotnet-format
+
+    - name: Restore .NET project
+      run: dotnet restore
+
+    - name: Run dotnet-format and Output Report
+      run: |
+        mkdir -p reports
+        dotnet format --verify-no-changes --report ./reports/format-report.json || true
+
+    - name: Calculate Quality Score
+      id: calculate_score
+      run: |
+        ERROR_COUNT=$(jq '[.Diagnostics[].Diagnostics[]] | length' reports/format-report.json)
+        LINE_COUNT=$(find . -name '*.cs' -exec cat {} + | wc -l)
+
+        if [ "$LINE_COUNT" -eq 0 ]; then
+          QUALITY_SCORE=0
+        else
+          QUALITY_SCORE=$(awk "BEGIN {printf \"%.2f\", 10.0 - ((5 * $ERROR_COUNT / $LINE_COUNT) * 10)}")
+        fi
+
+        echo "Quality Score: $QUALITY_SCORE"
+        echo "quality_score=$QUALITY_SCORE" >> $GITHUB_ENV
+
+    - name: Create HTML Report
+      run: |
+        QUALITY_SCORE=${{ env.quality_score }}
+        echo "<html><body><h1>Code Quality Report (.NET)</h1><h2>Quality Score: $QUALITY_SCORE</h2><pre>" > format-report.html
+        cat reports/format-report.json >> format-report.html
+        echo "</pre></body></html>" >> format-report.html
+
+    - name: Move Report to docs/ Folder
+      run: |
+        USERNAME="${{ github.event.inputs.custom_username || 'default-user' }}"
+        PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
+        DOCS_FOLDER="docs/${USERNAME}/${PROJECT_ID}/code_quality"
+        mkdir -p "$DOCS_FOLDER"
+        mv format-report.html "$DOCS_FOLDER/"
+
+    - name: Upload Report Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: csharp-quality-report
+        path: docs/${{ github.event.inputs.custom_username || 'default-user' }}/format-report.html
+
+    - name: Commit and Push Report to GitHub Pages
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        
+        REPORT_PATH="docs/${{ github.event.inputs.custom_username || 'default-user' }}/format-report.html"
+        if [ -f "$REPORT_PATH" ]; then
+          git add "$REPORT_PATH"
+          git commit -m "Update C# code quality report for ${{ github.event.inputs.custom_username || 'default-user' }}"
+          git push origin main --force
+        else
+          echo "No report found to commit."
+        fi
+
+    - name: Call API to Insert Quality Score
+      run: |
+        API_URL="https://dolphin-app-uzion.ondigitalocean.app/api/setQuality?clientpublic=baef7468287a44d8ac3634026d9fb8d1&clientsecret=181a2f3171117c1bd164c88b1171c1b83114fc1712121b12"
+        USER_ID="${{ github.event.inputs.custom_username || 'default-user' }}"
+        PROJECT_ID="${{ github.event.inputs.project_id || 'default-project' }}"
+        LAST_REQUEST_TIME="$(date +%s)000"
+
+        curl -X POST "$API_URL" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"userid\": \"$USER_ID\",
+            \"clientpublic\": \"$CLIENT_PUBLIC\",
+            \"clientsecret\": \"$CLIENT_SECRET\",
+            \"projectid\": \"$PROJECT_ID\",
+            \"recordtime\": \"$LAST_REQUEST_TIME\",
+            \"quality\": \"${{ env.quality_score }}\",
+            \"coverage\": \"${{ env.quality_score }}\"
+          }"
